@@ -1,7 +1,8 @@
 import asyncio
-import aiofiles
 import json
+from enum import IntEnum
 
+import aiofiles
 import httpx
 from pydantic import BaseModel
 
@@ -31,7 +32,7 @@ class Product(BaseModel):
     sizes: list[Size]
 
 
-class Location:
+class Location(IntEnum):
     MOSCOW = -1257786
     SAINT_PETERSBURG = -1257786
     NOVOSIBIRSK = -364763
@@ -39,12 +40,12 @@ class Location:
 
 class WildberriesParser:
     async def search(self, query: str, location: int, number_of_pages: int):
-        tasks = [
+        process_page_tasks = [
             asyncio.create_task(self._parse_page(query, location, page_number))
             for page_number in range(1, number_of_pages + 1)
         ]
-        for products_coroutine in asyncio.as_completed(tasks):
-            products = await products_coroutine
+        for process_page_task in asyncio.as_completed(process_page_tasks):
+            products = await process_page_task
             for product in products:
                 yield product
 
@@ -87,9 +88,12 @@ class WildberriesParser:
 
 
 async def main():
+    query = "платье летнее"
+    location = Location.MOSCOW
+    number_of_pages = 30
     parser = WildberriesParser()
     async with aiofiles.open("products.jsonl", "w", encoding="utf-8") as f:
-        async for product in parser.search("платье летнее", Location.MOSCOW, 30):
+        async for product in parser.search(query, location, number_of_pages):
             await f.write(json.dumps(product.model_dump(), ensure_ascii=False) + "\n")
 
 
